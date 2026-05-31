@@ -4,24 +4,58 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Викторина</title>
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <h1>Викторина</h1>
+        <header class="app-header">
+            <h1>Викторина</h1>
+        </header>
 
-        <!-- Экран загрузки файла -->
-        <div id="upload-screen">
-            <p>Загрузите файл .txt с вопросами</p>
-            <input type="file" id="file-input" accept=".txt">
-            <button id="upload-btn" onclick="uploadFile()">Загрузить и начать</button>
-            <div id="error-message" class="error"></div>
+        <!-- Экран выбора теста -->
+        <div id="library-screen" class="screen">
+            <section class="library-section" aria-labelledby="library-title">
+                <h2 id="library-title">Готовые тесты</h2>
+                <div id="manifest-message" class="message">Загружаем список тестов...</div>
+                <div id="tests-list" class="tests-list" aria-live="polite"></div>
+            </section>
+
+            <section id="upload-screen" class="upload-section" aria-labelledby="upload-title">
+                <h2 id="upload-title">Загрузить свой файл</h2>
+                <p>Выберите локальный .txt с вопросами.</p>
+                <input type="file" id="file-input" accept=".txt">
+                <button id="upload-btn" type="button" onclick="uploadFile()">Загрузить</button>
+                <div id="error-message" class="error"></div>
+            </section>
+        </div>
+
+        <!-- Экран выбора объёма -->
+        <div id="range-screen" class="screen" style="display: none;">
+            <button type="button" class="secondary-btn compact-btn" onclick="backToLibrary()">
+                К списку тестов
+            </button>
+            <h2 id="range-title">Выбор объёма</h2>
+            <p id="range-summary" class="message"></p>
+            <div id="range-options" class="range-options" role="radiogroup" aria-label="Объём теста"></div>
+            <div id="range-error" class="error"></div>
+            <button id="start-btn" type="button" onclick="startTest()">Начать</button>
         </div>
 
         <!-- Экран теста -->
-        <div id="test-screen" style="display: none;">
+        <div id="test-screen" class="screen" style="display: none;">
+            <div class="test-nav">
+                <button type="button" class="secondary-btn compact-btn" onclick="exitTestToLibrary()">
+                    К списку
+                </button>
+            </div>
             <div class="progress">
-                <span id="question-number">Вопрос 1 из 10</span>
+                <div class="progress-meta">
+                    <span id="question-number">Вопрос 1 из 10</span>
+                </div>
+                <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
             </div>
 
             <div id="question-text" class="question"></div>
@@ -39,7 +73,7 @@
         </div>
 
         <!-- Экран результатов -->
-        <div id="results-screen" style="display: none;">
+        <div id="results-screen" class="screen" style="display: none;">
             <h2>Результаты</h2>
 
             <div id="score" class="score"></div>
@@ -49,10 +83,13 @@
                 <div id="mistakes-list" class="mistakes-list"></div>
             </div>
 
-            <button onclick="restartTest()">Пройти заново</button>
-            <button id="retry-mistakes-btn" onclick="retryMistakes()" style="display: none;">
-                Пройти ошибки заново
-            </button>
+            <div class="results-actions">
+                <button type="button" onclick="restartTest()">Пройти заново</button>
+                <button id="retry-mistakes-btn" type="button" onclick="retryMistakes()" style="display: none;">
+                    Пройти ошибки заново
+                </button>
+                <button type="button" class="secondary-btn" onclick="backToLibrary()">К списку тестов</button>
+            </div>
         </div>
     </div>
 

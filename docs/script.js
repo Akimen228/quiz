@@ -1,10 +1,13 @@
 // Глобальные переменные
-let questions = [];          // Оригинальные вопросы из файла
-let shuffledQuestions = [];  // Перемешанные вопросы
-let currentIndex = 0;        // Текущий индекс вопроса
-let score = 0;               // Количество правильных ответов
-let mistakes = [];           // Список ошибок
-let answered = false;        // Флаг: ответил ли пользователь на текущий вопрос
+let sourceQuestions = [];     // Все вопросы выбранного теста до среза
+let questions = [];           // Вопросы выбранного объёма до перемешивания
+let shuffledQuestions = [];   // Перемешанные вопросы
+let currentIndex = 0;         // Текущий индекс вопроса
+let score = 0;                // Количество правильных ответов
+let mistakes = [];            // Список ошибок
+let answered = false;         // Флаг: ответил ли пользователь на текущий вопрос
+let currentTestName = '';     // Название выбранного теста
+let selectedRangeId = 'all';  // Выбранный объём
 
 // ===================================================================
 //  ПАРСЕР .txt ФАЙЛОВ (выполняется прямо в браузере, без сервера)
@@ -145,6 +148,272 @@ function parseTxt(arrayBuffer) {
 }
 
 // ===================================================================
+//  БИБЛИОТЕКА ТЕСТОВ И ВЫБОР ОБЪЁМА
+// ===================================================================
+
+const SCREEN_IDS = ['library-screen', 'range-screen', 'test-screen', 'results-screen'];
+
+document.addEventListener('DOMContentLoaded', initializeApp);
+
+function initializeApp() {
+    showScreen('library-screen');
+    loadManifest();
+}
+
+function showScreen(screenId) {
+    SCREEN_IDS.forEach(id => {
+        const screen = document.getElementById(id);
+        if (screen) {
+            screen.style.display = id === screenId ? 'block' : 'none';
+        }
+    });
+
+    if (window.scrollTo) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+}
+
+function setMessage(elementId, text, isError = false) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+
+    element.textContent = text;
+    element.style.display = text ? 'block' : 'none';
+    element.classList.toggle('error', isError);
+    element.classList.toggle('message', !isError);
+}
+
+function encodeManifestFilePath(filePath) {
+    return filePath.split('/').map(part => encodeURIComponent(part)).join('/');
+}
+
+/**
+ * Проверяет, что путь из манифеста ведёт к .txt внутри tests/
+ * (защита от "..", абсолютных путей и внешних URL в битом manifest.json).
+ */
+function isSafeManifestPath(filePath) {
+    if (typeof filePath !== 'string' || !filePath) return false;
+    if (!filePath.startsWith('tests/')) return false;
+    if (!/\.txt$/i.test(filePath)) return false;
+    if (filePath.startsWith('/') || /^[a-z]+:/i.test(filePath)) return false;
+    return filePath.split('/').every(seg => seg !== '' && seg !== '.' && seg !== '..');
+}
+
+async function loadManifest() {
+    const list = document.getElementById('tests-list');
+    if (list) {
+        list.innerHTML = '';
+    }
+    setMessage('manifest-message', 'Загружаем список тестов...');
+
+    try {
+        const response = await fetch('manifest.json', { cache: 'no-store' });
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const manifest = await response.json();
+        const tests = Array.isArray(manifest.tests) ? manifest.tests : [];
+        renderTestList(tests);
+    } catch (err) {
+        renderTestList([]);
+        setMessage(
+            'manifest-message',
+            'Не удалось загрузить список тестов. Если вы открыли index.html двойным кликом, запустите локальный сервер или откройте сайт на GitHub Pages. Загрузка своего .txt ниже работает.',
+            true
+        );
+    }
+}
+
+function renderTestList(tests) {
+    const list = document.getElementById('tests-list');
+    if (!list) return;
+
+    list.innerHTML = '';
+
+    if (!tests.length) {
+        setMessage('manifest-message', 'Готовых тестов пока нет. Можно загрузить свой .txt ниже.');
+        return;
+    }
+
+    setMessage('manifest-message', '');
+
+    tests.forEach(test => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'test-list-item';
+        button.addEventListener('click', () => loadReadyTest(test));
+
+        const title = document.createElement('span');
+        title.className = 'test-title';
+        title.textContent = test.name || test.file;
+
+        const count = document.createElement('span');
+        count.className = 'test-count';
+        count.textContent = formatQuestionCount(test.count);
+
+        button.appendChild(title);
+        button.appendChild(count);
+        list.appendChild(button);
+    });
+}
+
+async function loadReadyTest(test) {
+    setMessage('manifest-message', `Загружаем «${test.name}»...`);
+
+    try {
+        if (!isSafeManifestPath(test.file)) {
+            throw new ParserError('Некорректный путь к тесту в манифесте');
+        }
+        const response = await fetch(encodeManifestFilePath(test.file), { cache: 'no-store' });
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const parsed = parseLoadedQuestions(await response.arrayBuffer());
+        openRangeSelection(parsed, test.name || test.file);
+    } catch (err) {
+        const message = err instanceof ParserError
+            ? err.message
+            : `Не удалось загрузить тест: ${err.message}`;
+        setMessage('manifest-message', message, true);
+    }
+}
+
+function parseLoadedQuestions(arrayBuffer) {
+    const parsed = parseTxt(arrayBuffer);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+        throw new ParserError('Файл не содержит вопросов');
+    }
+    return parsed;
+}
+
+function openRangeSelection(parsedQuestions, testName) {
+    sourceQuestions = parsedQuestions;
+    currentTestName = testName;
+    selectedRangeId = 'all';
+    setMessage('manifest-message', '');
+    showRangeSelection();
+}
+
+function showRangeSelection() {
+    if (!Array.isArray(sourceQuestions) || sourceQuestions.length === 0) {
+        setMessage('manifest-message', 'Выберите тест или загрузите .txt файл.', true);
+        showScreen('library-screen');
+        return;
+    }
+
+    document.getElementById('range-title').textContent = currentTestName || 'Выбор объёма';
+    document.getElementById('range-summary').textContent =
+        `Всего: ${formatQuestionCount(sourceQuestions.length)}`;
+    setMessage('range-error', '');
+    renderRangeOptions();
+    showScreen('range-screen');
+}
+
+function getQuestionRangeOptions(total) {
+    const mid = Math.ceil(total / 2);
+    return [
+        { id: 'all', label: 'Все вопросы', count: total },
+        { id: 'first', label: 'Первая половина', count: mid },
+        { id: 'second', label: 'Вторая половина', count: Math.max(total - mid, 0) }
+    ];
+}
+
+function selectQuestionRange(allQuestions, rangeId) {
+    const mid = Math.ceil(allQuestions.length / 2);
+
+    if (rangeId === 'first') {
+        return allQuestions.slice(0, mid);
+    }
+
+    if (rangeId === 'second') {
+        return allQuestions.slice(mid);
+    }
+
+    return allQuestions.slice();
+}
+
+function renderRangeOptions() {
+    const container = document.getElementById('range-options');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    getQuestionRangeOptions(sourceQuestions.length).forEach(option => {
+        const label = document.createElement('label');
+        label.className = 'range-option';
+        if (option.id === selectedRangeId) {
+            label.classList.add('selected');
+        }
+        if (option.count === 0) {
+            label.classList.add('disabled');
+        }
+
+        const input = document.createElement('input');
+        input.type = 'radio';
+        input.name = 'question-range';
+        input.value = option.id;
+        input.checked = option.id === selectedRangeId;
+        input.disabled = option.count === 0;
+        input.addEventListener('change', () => {
+            selectedRangeId = option.id;
+            renderRangeOptions();
+        });
+
+        const text = document.createElement('span');
+        text.className = 'range-label';
+        text.textContent = option.label;
+
+        const count = document.createElement('span');
+        count.className = 'range-count';
+        count.textContent = formatQuestionCount(option.count);
+
+        label.appendChild(input);
+        label.appendChild(text);
+        label.appendChild(count);
+        container.appendChild(label);
+    });
+}
+
+function formatQuestionCount(count) {
+    const abs = Math.abs(count) % 100;
+    const last = abs % 10;
+
+    if (abs > 10 && abs < 20) {
+        return `${count} вопросов`;
+    }
+    if (last === 1) {
+        return `${count} вопрос`;
+    }
+    if (last >= 2 && last <= 4) {
+        return `${count} вопроса`;
+    }
+    return `${count} вопросов`;
+}
+
+function fileDisplayName(fileName) {
+    return fileName.replace(/\.txt$/i, '').replace(/_/g, ' ');
+}
+
+function backToLibrary() {
+    showScreen('library-screen');
+}
+
+/**
+ * Выход из теста к списку — с подтверждением, чтобы случайным нажатием
+ * не потерять прогресс текущего прохождения.
+ */
+function exitTestToLibrary() {
+    const confirmed = window.confirm(
+        'Выйти из теста? Прогресс текущего прохождения будет потерян.'
+    );
+    if (confirmed) {
+        backToLibrary();
+    }
+}
+
+// ===================================================================
 //  ЛОГИКА ТЕСТА
 // ===================================================================
 
@@ -215,15 +484,8 @@ function uploadFile() {
 
     reader.onload = function (e) {
         try {
-            const parsed = parseTxt(e.target.result);
-
-            if (!Array.isArray(parsed) || parsed.length === 0) {
-                errorDiv.textContent = 'Файл не содержит вопросов';
-                return;
-            }
-
-            questions = parsed;
-            startTest();
+            const parsed = parseLoadedQuestions(e.target.result);
+            openRangeSelection(parsed, fileDisplayName(file.name));
         } catch (err) {
             if (err instanceof ParserError) {
                 errorDiv.textContent = err.message;
@@ -245,12 +507,16 @@ function uploadFile() {
  * Начало теста
  */
 function startTest() {
-    if (!Array.isArray(questions) || questions.length === 0) {
-        const errorDiv = document.getElementById('error-message');
-        errorDiv.textContent = 'Файл не содержит вопросов';
-        document.getElementById('upload-screen').style.display = 'block';
-        document.getElementById('test-screen').style.display = 'none';
-        document.getElementById('results-screen').style.display = 'none';
+    if (!Array.isArray(sourceQuestions) || sourceQuestions.length === 0) {
+        setMessage('range-error', 'Файл не содержит вопросов', true);
+        showScreen('range-screen');
+        return;
+    }
+
+    questions = selectQuestionRange(sourceQuestions, selectedRangeId);
+
+    if (!questions.length) {
+        setMessage('range-error', 'В выбранном объёме нет вопросов', true);
         return;
     }
 
@@ -264,9 +530,7 @@ function startTest() {
     shuffledQuestions = shuffleQuestionsAndAnswers(questions);
 
     // Показываем экран теста
-    document.getElementById('upload-screen').style.display = 'none';
-    document.getElementById('test-screen').style.display = 'block';
-    document.getElementById('results-screen').style.display = 'none';
+    showScreen('test-screen');
 
     // Отображаем первый вопрос
     showQuestion();
@@ -282,6 +546,16 @@ function showQuestion() {
     // Обновляем счётчик
     document.getElementById('question-number').textContent =
         `Вопрос ${currentIndex + 1} из ${total}`;
+
+    const progressValue = Math.round(((currentIndex + 1) / total) * 100);
+    const progressBar = document.querySelector('.progress-bar');
+    const progressFill = document.getElementById('progress-fill');
+    if (progressBar) {
+        progressBar.setAttribute('aria-valuenow', String(progressValue));
+    }
+    if (progressFill) {
+        progressFill.style.width = `${progressValue}%`;
+    }
 
     // Показываем текст вопроса
     document.getElementById('question-text').textContent = q.question;
@@ -390,8 +664,7 @@ function nextQuestion() {
  * Отображение результатов
  */
 function showResults() {
-    document.getElementById('test-screen').style.display = 'none';
-    document.getElementById('results-screen').style.display = 'block';
+    showScreen('results-screen');
 
     const total = shuffledQuestions.length;
     const percent = Math.round((score / total) * 100);
@@ -411,20 +684,27 @@ function showResults() {
         retryMistakesBtn.style.display = 'inline-block';
         mistakesList.innerHTML = '';
 
+        // Собираем через DOM/textContent — тексты вопросов и ответов из .txt
+        // вставляются как текст, а не HTML (защита от XSS и от поломки на < > &).
+        const buildRow = (className, labelText, valueText, strong) => {
+            const row = document.createElement('div');
+            row.className = className;
+            const label = document.createElement(strong ? 'strong' : 'span');
+            if (!strong) {
+                label.className = 'label';
+            }
+            label.textContent = labelText;
+            row.appendChild(label);
+            row.appendChild(document.createTextNode(' ' + valueText));
+            return row;
+        };
+
         mistakes.forEach(m => {
             const div = document.createElement('div');
             div.className = 'mistake-item';
-            div.innerHTML = `
-                <div class="mistake-question">
-                    <strong>Вопрос ${m.questionNumber}:</strong> ${m.questionText}
-                </div>
-                <div class="mistake-user">
-                    <span class="label">Ваш ответ:</span> ${m.userAnswer}
-                </div>
-                <div class="mistake-correct">
-                    <span class="label">Правильный ответ:</span> ${m.correctAnswer}
-                </div>
-            `;
+            div.appendChild(buildRow('mistake-question', `Вопрос ${m.questionNumber}:`, m.questionText, true));
+            div.appendChild(buildRow('mistake-user', 'Ваш ответ:', m.userAnswer, false));
+            div.appendChild(buildRow('mistake-correct', 'Правильный ответ:', m.correctAnswer, false));
             mistakesList.appendChild(div);
         });
     } else {
@@ -437,7 +717,7 @@ function showResults() {
  * Перезапуск теста
  */
 function restartTest() {
-    startTest();
+    showRangeSelection();
 }
 
 /**
@@ -459,9 +739,7 @@ function retryMistakes() {
     shuffledQuestions = shuffleQuestionsAndAnswers(mistakeQuestions);
 
     // Показываем экран теста
-    document.getElementById('upload-screen').style.display = 'none';
-    document.getElementById('test-screen').style.display = 'block';
-    document.getElementById('results-screen').style.display = 'none';
+    showScreen('test-screen');
 
     // Отображаем первый вопрос
     showQuestion();
