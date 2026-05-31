@@ -1,0 +1,17 @@
+services:
+  app:
+    build: .
+    container_name: viktorina-app
+    restart: unless-stopped
+    expose:
+      - "8000"
+    ports:
+      - "8000:8000"
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: viktorina-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://app:8000
+    depends_on:
+      - app

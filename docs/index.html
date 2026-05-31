@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Викторина</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Викторина</h1>
+
+        <!-- Экран загрузки файла -->
+        <div id="upload-screen">
+            <p>Загрузите файл .txt с вопросами</p>
+            <input type="file" id="file-input" accept=".txt">
+            <button id="upload-btn" onclick="uploadFile()">Загрузить и начать</button>
+            <div id="error-message" class="error"></div>
+        </div>
+
+        <!-- Экран теста -->
+        <div id="test-screen" style="display: none;">
+            <div class="progress">
+                <span id="question-number">Вопрос 1 из 10</span>
+            </div>
+
+            <div id="question-text" class="question"></div>
+
+            <div id="answers-container" class="answers"></div>
+
+            <div id="feedback" class="feedback" style="display: none;">
+                <div id="feedback-text"></div>
+                <div id="correct-answer-text"></div>
+            </div>
+
+            <button id="next-btn" onclick="nextQuestion()" style="display: none;">
+                Следующий вопрос
+            </button>
+        </div>
+
+        <!-- Экран результатов -->
+        <div id="results-screen" style="display: none;">
+            <h2>Результаты</h2>
+
+            <div id="score" class="score"></div>
+
+            <div id="mistakes-section" style="display: none;">
+                <h3>Ваши ошибки:</h3>
+                <div id="mistakes-list" class="mistakes-list"></div>
+            </div>
+
+            <button onclick="restartTest()">Пройти заново</button>
+            <button id="retry-mistakes-btn" onclick="retryMistakes()" style="display: none;">
+                Пройти ошибки заново
+            </button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

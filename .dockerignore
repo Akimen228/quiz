@@ -1,0 +1,13 @@
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.git
+.gitignore
+.venv
+venv
+env
+*.md
+test_parser.py
+вопросы*.txt
+ответы.txt
