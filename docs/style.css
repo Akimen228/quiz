@@ -4,10 +4,21 @@
     padding: 0;
 }
 
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
 html,
 body {
     width: 100%;
     overflow-x: hidden;
+}
+
+@supports (overflow-x: clip) {
+    html,
+    body {
+        overflow-x: clip;
+    }
 }
 
 body {
@@ -26,6 +37,14 @@ input,
 .mistake-item {
     overflow-wrap: anywhere;
     word-break: break-word;
+}
+
+button,
+a,
+input,
+.test-list-item,
+.range-option {
+    -webkit-tap-highlight-color: rgba(36, 120, 168, 0.18);
 }
 
 .container {
@@ -109,6 +128,7 @@ h3 {
 }
 
 .test-title {
+    min-width: 0;
     font-weight: 650;
 }
 
@@ -390,48 +410,112 @@ button:disabled {
 @media (max-width: 600px) {
     body {
         background: #fff;
+        line-height: 1.4;
     }
 
     .container {
         width: 100%;
         min-height: 100vh;
         margin: 0;
-        padding: 18px 14px 24px;
+        padding: 12px 12px max(18px, env(safe-area-inset-bottom));
+        padding-left: max(12px, env(safe-area-inset-left));
+        padding-right: max(12px, env(safe-area-inset-right));
         border-radius: 0;
         box-shadow: none;
     }
 
     .app-header {
-        margin-bottom: 20px;
+        margin-bottom: 10px;
+    }
+
+    .app-header nav a {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+        padding: 6px 10px;
     }
 
     h1 {
-        font-size: 26px;
+        font-size: 19px;
     }
 
     h2 {
-        font-size: 20px;
+        margin-bottom: 10px;
+        font-size: 16px;
+    }
+
+    button {
+        padding: 10px 16px;
+    }
+
+    .upload-section {
+        margin-top: 18px;
+        padding-top: 16px;
+    }
+
+    .upload-section p,
+    .message {
+        margin-bottom: 10px;
+    }
+
+    .tests-list {
+        gap: 9px;
     }
 
     .test-list-item {
-        align-items: flex-start;
-        flex-direction: column;
-        gap: 6px;
-        padding: 14px;
+        min-height: 50px;
+        gap: 8px;
+        padding: 11px 13px;
+        line-height: 1.25;
     }
 
     .test-count {
-        white-space: normal;
+        font-size: 13px;
+        line-height: 1.2;
+    }
+
+    .range-options {
+        gap: 8px;
+        margin: 12px 0;
+    }
+
+    .range-option {
+        min-height: 50px;
+        gap: 10px;
+        padding: 11px 12px;
+        line-height: 1.35;
+    }
+
+    .test-nav {
+        margin-bottom: 10px;
+    }
+
+    .progress {
+        margin-bottom: 14px;
+    }
+
+    .progress-meta {
+        margin-bottom: 6px;
+        line-height: 1.35;
     }
 
     .question {
-        font-size: 17px;
-        padding: 14px;
+        margin-bottom: 14px;
+        padding: 11px 12px;
+        font-size: 15px;
+        line-height: 1.4;
+    }
+
+    .answers {
+        gap: 8px;
+        margin-bottom: 16px;
     }
 
     .answer-btn {
-        min-height: 56px;
-        padding: 14px;
+        min-height: 46px;
+        padding: 11px 13px;
+        font-size: 15px;
+        line-height: 1.35;
     }
 
     .score {
@@ -441,12 +525,29 @@ button:disabled {
 
 @media (max-width: 380px) {
     .container {
-        padding: 14px 10px 22px;
+        padding-top: 10px;
+        padding-bottom: max(16px, env(safe-area-inset-bottom));
+        padding-left: max(10px, env(safe-area-inset-left));
+        padding-right: max(10px, env(safe-area-inset-right));
     }
 
     button {
-        padding-left: 14px;
-        padding-right: 14px;
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    h1 {
+        font-size: 18px;
+    }
+
+    h2 {
+        font-size: 15px;
+    }
+
+    .test-list-item,
+    .range-option {
+        min-height: 48px;
+        padding: 10px 11px;
     }
 
     .range-option {
@@ -456,5 +557,26 @@ button:disabled {
     .range-count {
         grid-column: 2;
         white-space: normal;
+    }
+
+    .question {
+        margin-bottom: 12px;
+        padding: 10px 11px;
+        font-size: 14px;
+    }
+
+    .answers {
+        gap: 7px;
+    }
+
+    .answer-btn {
+        min-height: 44px;
+        padding: 10px 11px;
+        font-size: 14px;
+    }
+
+    .upload-section {
+        margin-top: 16px;
+        padding-top: 14px;
     }
 }

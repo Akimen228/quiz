@@ -17,6 +17,10 @@
     margin-bottom: 18px;
 }
 
+.search-sticky {
+    background: #fff;
+}
+
 .search-input,
 .copy-btn {
     min-height: 44px;
@@ -133,20 +137,71 @@
 }
 
 @media (max-width: 600px) {
+    #back-to-subjects {
+        margin-bottom: 12px;
+    }
+
+    .search-sticky {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        margin-bottom: 8px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(36, 120, 168, 0.14);
+        box-shadow: 0 6px 12px rgba(25, 42, 62, 0.06);
+    }
+
+    .search-sticky .message {
+        margin-bottom: 0;
+    }
+
     .search-input {
-        min-height: 58px;
-        font-size: 18px;
+        min-height: 46px;
+        margin: 6px 0 8px;
+        padding: 11px 14px;
+        font-size: 16px;
+        line-height: 1.35;
+    }
+
+    .search-results {
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    .search-result-card {
+        gap: 10px;
+        padding: 12px;
+    }
+
+    .result-question {
+        font-size: 15px;
+        line-height: 1.35;
+    }
+
+    .result-answer {
+        padding: 9px 11px;
+    }
+
+    .result-answer-label {
+        margin-bottom: 2px;
+        font-size: 11px;
+    }
+
+    .result-answer-text {
+        font-size: 16px;
+        line-height: 1.35;
     }
 
     .copy-btn {
-        min-height: 52px;
-        font-size: 16px;
+        min-height: 44px;
+        font-size: 15px;
     }
 }
 
 @media (max-width: 380px) {
     .search-result-card {
-        padding: 14px 12px;
+        gap: 8px;
+        padding: 10px;
     }
 
     .search-input {

@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Поиск ответов</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="style.css">
@@ -31,17 +31,19 @@
             </button>
             <h2 id="selected-subject-title">Предмет</h2>
 
-            <label class="visually-hidden" for="search-input">Часть вопроса</label>
-            <input
-                id="search-input"
-                class="search-input"
-                type="search"
-                placeholder="Вставьте или введите часть вопроса"
-                autocomplete="off"
-                autofocus
-            >
+            <div class="search-sticky">
+                <label class="visually-hidden" for="search-input">Часть вопроса</label>
+                <input
+                    id="search-input"
+                    class="search-input"
+                    type="search"
+                    placeholder="Вставьте или введите часть вопроса"
+                    autocomplete="off"
+                    autofocus
+                >
 
-            <div id="search-status" class="message" aria-live="polite">Начните вводить вопрос...</div>
+                <div id="search-status" class="message" aria-live="polite">Начните вводить вопрос...</div>
+            </div>
             <div id="results-list" class="search-results" aria-live="polite"></div>
         </div>
     </div>
