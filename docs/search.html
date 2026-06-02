@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поиск ответов</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="search.css">
+</head>
+<body>
+    <div class="container">
+        <header class="app-header search-page-header">
+            <h1>Поиск ответов</h1>
+            <nav class="search-nav" aria-label="Навигация">
+                <a href="index.html">К викторине</a>
+            </nav>
+        </header>
+
+        <div id="subject-screen" class="screen">
+            <section class="library-section" aria-labelledby="subject-title">
+                <h2 id="subject-title">Выберите предмет</h2>
+                <div id="search-manifest-message" class="message">Загружаем список тестов...</div>
+                <div id="subject-list" class="tests-list" aria-live="polite"></div>
+            </section>
+        </div>
+
+        <div id="search-screen" class="screen" style="display: none;">
+            <button id="back-to-subjects" type="button" class="secondary-btn compact-btn">
+                ← К предметам
+            </button>
+            <h2 id="selected-subject-title">Предмет</h2>
+
+            <label class="visually-hidden" for="search-input">Часть вопроса</label>
+            <input
+                id="search-input"
+                class="search-input"
+                type="search"
+                placeholder="Вставьте или введите часть вопроса"
+                autocomplete="off"
+                autofocus
+            >
+
+            <div id="search-status" class="message" aria-live="polite">Начните вводить вопрос...</div>
+            <div id="results-list" class="search-results" aria-live="polite"></div>
+        </div>
+    </div>
+
+    <script src="shared.js"></script>
+    <script src="search.js"></script>
+</body>
+</html>
