@@ -1,9 +1,12 @@
 const SEARCH_MAX_RESULTS = 50;
 
 const searchState = {
+    availableTests: [],
+    selectedFiles: new Set(),
     searchIndex: [],
     currentResults: [],
-    topCopyButton: null
+    topCopyButton: null,
+    activeTestCount: 0
 };
 
 const searchElements = {};
@@ -15,12 +18,14 @@ function initializeSearchApp() {
     searchElements.searchScreen = document.getElementById('search-screen');
     searchElements.manifestMessage = document.getElementById('search-manifest-message');
     searchElements.subjectList = document.getElementById('subject-list');
+    searchElements.searchSelectedButton = document.getElementById('search-selected-btn');
     searchElements.backButton = document.getElementById('back-to-subjects');
     searchElements.subjectTitle = document.getElementById('selected-subject-title');
     searchElements.input = document.getElementById('search-input');
     searchElements.status = document.getElementById('search-status');
     searchElements.resultsList = document.getElementById('results-list');
 
+    searchElements.searchSelectedButton.addEventListener('click', loadSelectedSubjects);
     searchElements.backButton.addEventListener('click', showSubjectScreen);
     searchElements.input.addEventListener('input', handleSearchInput);
     searchElements.input.addEventListener('keydown', handleSearchKeydown);
@@ -36,14 +41,22 @@ function showSubjectScreen() {
     searchState.currentResults = [];
     searchState.topCopyButton = null;
     searchElements.resultsList.replaceChildren();
+    updateSelectedSearchButton();
 }
 
-function showSearchScreen(testName) {
+function showSearchScreen(title, warningText = '') {
     searchElements.subjectScreen.style.display = 'none';
     searchElements.searchScreen.style.display = 'block';
-    searchElements.subjectTitle.textContent = testName;
+    searchElements.subjectTitle.textContent = title;
     searchElements.input.value = '';
-    renderSearchResults('');
+    if (warningText) {
+        searchElements.resultsList.replaceChildren();
+        searchState.currentResults = [];
+        searchState.topCopyButton = null;
+        setSearchMessage(searchElements.status, warningText);
+    } else {
+        renderSearchResults('');
+    }
     searchElements.input.focus();
 
     if (window.scrollTo) {
@@ -83,9 +96,12 @@ async function loadSearchManifest() {
 
 function renderSubjectList(tests) {
     searchElements.subjectList.replaceChildren();
+    searchState.availableTests = tests;
+    pruneSelectedFiles(tests);
 
     if (!tests.length) {
         setSearchMessage(searchElements.manifestMessage, 'Готовых тестов пока нет.');
+        updateSelectedSearchButton();
         return;
     }
 
@@ -96,7 +112,13 @@ function renderSubjectList(tests) {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'test-list-item';
-        button.addEventListener('click', () => loadSubject(test));
+        button.setAttribute('aria-pressed', searchState.selectedFiles.has(test.file) ? 'true' : 'false');
+        button.addEventListener('click', () => toggleSubjectSelection(test, button));
+
+        const mark = document.createElement('span');
+        mark.className = 'test-select-mark';
+        mark.setAttribute('aria-hidden', 'true');
+        mark.textContent = '✓';
 
         const title = document.createElement('span');
         title.className = 'test-title';
@@ -106,17 +128,104 @@ function renderSubjectList(tests) {
         count.className = 'test-count';
         count.textContent = formatQuestionCount(test.count);
 
+        button.appendChild(mark);
         button.appendChild(title);
         button.appendChild(count);
         fragment.appendChild(button);
     });
 
     searchElements.subjectList.appendChild(fragment);
+    updateSelectedSearchButton();
+}
+
+function pruneSelectedFiles(tests) {
+    const availableFiles = new Set(tests.map(test => test.file));
+    searchState.selectedFiles.forEach(file => {
+        if (!availableFiles.has(file)) {
+            searchState.selectedFiles.delete(file);
+        }
+    });
+}
+
+function toggleSubjectSelection(test, button) {
+    const file = test.file;
+    if (searchState.selectedFiles.has(file)) {
+        searchState.selectedFiles.delete(file);
+        button.setAttribute('aria-pressed', 'false');
+    } else {
+        searchState.selectedFiles.add(file);
+        button.setAttribute('aria-pressed', 'true');
+    }
+
+    updateSelectedSearchButton();
+}
+
+function updateSelectedSearchButton(isLoading = false) {
+    const count = searchState.selectedFiles.size;
+    searchElements.searchSelectedButton.textContent = isLoading
+        ? 'Загружаем...'
+        : `Искать (${count})`;
+    searchElements.searchSelectedButton.disabled = isLoading || count === 0;
+}
+
+// На время загрузки блокируем переключатели тестов, чтобы выбор не менялся,
+// пока строится индекс (иначе активный набор и подсветка могут рассинхронизироваться).
+function setSubjectListDisabled(disabled) {
+    searchElements.subjectList.querySelectorAll('.test-list-item').forEach(button => {
+        button.disabled = disabled;
+    });
+}
+
+function getSelectedTests() {
+    return searchState.availableTests.filter(test => searchState.selectedFiles.has(test.file));
+}
+
+async function loadSelectedSubjects() {
+    const selectedTests = getSelectedTests();
+    if (!selectedTests.length) {
+        updateSelectedSearchButton();
+        return;
+    }
+
+    setSearchMessage(searchElements.manifestMessage, 'Загружаем выбранные тесты...');
+    updateSelectedSearchButton(true);
+    setSubjectListDisabled(true);
+
+    let results;
+    try {
+        results = await Promise.all(selectedTests.map(loadSubject));
+    } finally {
+        setSubjectListDisabled(false);
+    }
+    const loaded = results.filter(result => result.ok);
+    const failed = results.filter(result => !result.ok);
+
+    updateSelectedSearchButton();
+
+    if (!loaded.length) {
+        searchState.searchIndex = [];
+        searchState.activeTestCount = 0;
+        setSearchMessage(
+            searchElements.manifestMessage,
+            `Не удалось загрузить выбранные тесты: ${formatLoadFailures(failed)}.`,
+            true
+        );
+        return;
+    }
+
+    searchState.searchIndex = loaded.flatMap(result => buildSearchIndex(result.questions, result.testName));
+    searchState.activeTestCount = loaded.length;
+
+    const warningText = failed.length
+        ? `Не удалось загрузить: ${formatLoadFailures(failed)}. Поиск идет по загруженным тестам.`
+        : '';
+
+    setSearchMessage(searchElements.manifestMessage, '');
+    showSearchScreen(formatSelectedTestsTitle(loaded.map(result => result.testName)), warningText);
 }
 
 async function loadSubject(test) {
     const testName = test.name || test.file;
-    setSearchMessage(searchElements.manifestMessage, `Загружаем «${testName}»...`);
 
     try {
         if (!isSafeManifestPath(test.file)) {
@@ -128,16 +237,37 @@ async function loadSubject(test) {
             throw new Error(`HTTP ${response.status}`);
         }
 
-        const parsed = parseTxt(await response.arrayBuffer());
-        searchState.searchIndex = buildSearchIndex(parsed);
-        setSearchMessage(searchElements.manifestMessage, '');
-        showSearchScreen(testName);
+        return {
+            ok: true,
+            testName: testName,
+            questions: parseTxt(await response.arrayBuffer())
+        };
     } catch (err) {
         const message = err instanceof ParserError
             ? err.message
             : `Не удалось загрузить тест: ${err.message}`;
-        setSearchMessage(searchElements.manifestMessage, message, true);
+        return {
+            ok: false,
+            testName: testName,
+            message: message
+        };
     }
+}
+
+function formatLoadFailures(failedResults) {
+    return failedResults
+        .map(result => `«${result.testName}» (${result.message})`)
+        .join(', ');
+}
+
+function formatSelectedTestsTitle(testNames) {
+    if (testNames.length === 1) {
+        return testNames[0];
+    }
+    if (testNames.length <= 3) {
+        return testNames.join(', ');
+    }
+    return `Выбрано тестов: ${testNames.length}`;
 }
 
 function normalizeSearchText(value) {
@@ -149,13 +279,14 @@ function normalizeSearchText(value) {
         .replace(/\s+/g, ' ');
 }
 
-function buildSearchIndex(questions) {
+function buildSearchIndex(questions, testName = '') {
     return questions.map(item => {
         const answer = item.answers[item.correct_index];
         return {
             question: item.question,
             answer: answer,
-            normQuestion: normalizeSearchText(item.question)
+            normQuestion: normalizeSearchText(item.question),
+            testName: testName
         };
     });
 }
@@ -275,6 +406,13 @@ function createResultCard(entry, isTopResult) {
     const question = document.createElement('div');
     question.className = 'result-question';
     question.textContent = entry.question;
+
+    if (searchState.activeTestCount > 1 && entry.testName) {
+        const source = document.createElement('div');
+        source.className = 'result-source';
+        source.textContent = entry.testName;
+        card.appendChild(source);
+    }
 
     const answerBox = document.createElement('div');
     answerBox.className = 'result-answer';
